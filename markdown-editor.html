@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown 编辑器 - 自动加空格</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .editor-pane, .preview-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-pane {
+            border-right: 2px solid #e1e4e8;
+        }
+
+        .pane-header {
+            background: #f6f8fa;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e1e4e8;
+            font-weight: 600;
+            color: #24292e;
+        }
+
+        #editor {
+            flex: 1;
+            padding: 20px;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro", monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-y: auto;
+        }
+
+        #preview {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #ffffff;
+        }
+
+        /* Markdown 预览样式 */
+        #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        #preview h1 {
+            font-size: 2em;
+            border-bottom: 1px solid #e1e4e8;
+            padding-bottom: 0.3em;
+        }
+
+        #preview h2 {
+            font-size: 1.5em;
+            border-bottom: 1px solid #e1e4e8;
+            padding-bottom: 0.3em;
+        }
+
+        #preview h3 { font-size: 1.25em; }
+        #preview h4 { font-size: 1em; }
+        #preview h5 { font-size: 0.875em; }
+        #preview h6 { font-size: 0.85em; color: #6a737d; }
+
+        #preview p {
+            margin-bottom: 16px;
+            line-height: 1.7;
+        }
+
+        #preview code {
+            background: #f6f8fa;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", monospace;
+            font-size: 85%;
+        }
+
+        #preview pre {
+            background: #f6f8fa;
+            padding: 16px;
+            overflow: auto;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+
+        #preview pre code {
+            background: none;
+            padding: 0;
+        }
+
+        #preview ul, #preview ol {
+            margin-bottom: 16px;
+            padding-left: 2em;
+        }
+
+        #preview li {
+            margin-bottom: 4px;
+        }
+
+        #preview blockquote {
+            border-left: 4px solid #dfe2e5;
+            padding-left: 16px;
+            color: #6a737d;
+            margin-bottom: 16px;
+        }
+
+        #preview a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        #preview a:hover {
+            text-decoration: underline;
+        }
+
+        #preview strong {
+            font-weight: 600;
+        }
+
+        #preview em {
+            font-style: italic;
+        }
+
+        #preview hr {
+            border: 0;
+            border-top: 1px solid #e1e4e8;
+            margin: 24px 0;
+        }
+
+        #preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        #preview table th,
+        #preview table td {
+            padding: 6px 13px;
+            border: 1px solid #dfe2e5;
+        }
+
+        #preview table th {
+            background: #f6f8fa;
+            font-weight: 600;
+        }
+
+        #preview table tr:nth-child(2n) {
+            background: #f6f8fa;
+        }
+
+        .controls {
+            padding: 8px 20px;
+            background: #fafbfc;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toggle-btn {
+            padding: 6px 12px;
+            background: #ffffff;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn:hover {
+            background: #f6f8fa;
+            border-color: #cbd2d9;
+        }
+
+        .toggle-btn.active {
+            background: #0366d6;
+            color: white;
+            border-color: #0366d6;
+        }
+
+        .status {
+            font-size: 12px;
+            color: #586069;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="editor-pane">
+            <div class="pane-header">编辑器</div>
+            <div class="controls">
+                <button class="toggle-btn active" id="autoSpaceToggle">✓ 自动加空格</button>
+                <span class="status">中英文混排优化已启用</span>
+            </div>
+            <textarea id="editor" placeholder="在这里输入 Markdown 内容..."></textarea>
+        </div>
+        <div class="preview-pane">
+            <div class="pane-header">预览</div>
+            <div id="preview"></div>
+        </div>
+    </div>
+
+    <!-- 使用 marked.js 库来渲染 Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+        const autoSpaceToggle = document.getElementById('autoSpaceToggle');
+        let autoSpaceEnabled = true;
+
+        // 示例文本
+        const sampleText = `# Markdown编辑器示例
+
+欢迎使用这个Markdown编辑器！它最大的特点是能自动在中英文之间加空格。
+
+## 核心功能
+
+这个编辑器会自动在以下情况添加空格：
+
+1. 中文和英文之间：比如"我喜欢JavaScript编程"会变成"我喜欢 JavaScript 编程"
+2. 中文和数字之间：比如"我有100个苹果"会变成"我有 100 个苹果"
+3. 标点符号优化：让文档看起来更舒服
+
+## 为什么需要这个功能？
+
+在中英文混排的技术文档中，适当的空格能让阅读体验更好。比如：
+
+- 原文：我在学习React框架，它的版本是18.2.0
+- 优化后：我在学习 React 框架，它的版本是 18.2.0
+
+## 示例对比
+
+### 编程相关
+- 我使用Vue3开发了一个Web应用
+- Python是一门很好的语言，版本3.11已经发布
+- 这个API的响应时间是50ms
+
+### 数据相关
+- 今天的温度是25度
+- 我买了3个iPhone和2台MacBook
+- 文件大小是1024MB
+
+## 代码示例
+
+\`\`\`javascript
+function addSpace(text) {
+    // 自动加空格的核心逻辑
+    return text.replace(/([\\u4e00-\\u9fa5])([a-zA-Z0-9])/g, '$1 $2')
+               .replace(/([a-zA-Z0-9])([\\u4e00-\\u9fa5])/g, '$1 $2');
+}
+\`\`\`
+
+## 其他 Markdown 功能
+
+这个编辑器支持所有标准的 Markdown 语法：
+
+- **粗体文本**
+- *斜体文本*
+- \`行内代码\`
+- [链接](https://example.com)
+
+> 这是一个引用块
+> 可以包含多行内容
+
+---
+
+试试在左边编辑，右边会实时预览！`;
+
+        // 设置初始文本
+        editor.value = sampleText;
+
+        // 自动加空格的核心函数
+        function addSpacing(text) {
+            if (!autoSpaceEnabled) {
+                return text;
+            }
+
+            let result = text;
+
+            // 中文与英文之间加空格
+            result = result.replace(/([\u4e00-\u9fa5])([a-zA-Z])/g, '$1 $2');
+            result = result.replace(/([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
+
+            // 中文与数字之间加空格
+            result = result.replace(/([\u4e00-\u9fa5])(\d)/g, '$1 $2');
+            result = result.replace(/(\d)([\u4e00-\u9fa5])/g, '$1 $2');
+
+            // 数字与英文单位之间加空格（如 100ms, 25degree）
+            result = result.replace(/(\d)([a-zA-Z])/g, '$1 $2');
+
+            // 避免在 Markdown 语法中添加空格
+            // 修复链接语法 [text] (url) -> [text](url)
+            result = result.replace(/\]\s+\(/g, '](');
+
+            // 修复图片语法 ![alt] (url) -> ![alt](url)
+            result = result.replace(/!\]\s+\(/g, '!](');
+
+            // 修复代码块标记
+            result = result.replace(/`\s+`/g, '``');
+            result = result.replace(/```\s+/g, '```');
+            result = result.replace(/\s+```/g, '```');
+
+            return result;
+        }
+
+        // 更新预览
+        function updatePreview() {
+            const rawText = editor.value;
+            const processedText = addSpacing(rawText);
+
+            // 使用 marked 渲染 Markdown
+            if (typeof marked !== 'undefined') {
+                preview.innerHTML = marked.parse(processedText);
+            } else {
+                preview.textContent = processedText;
+            }
+        }
+
+        // 切换自动加空格功能
+        autoSpaceToggle.addEventListener('click', () => {
+            autoSpaceEnabled = !autoSpaceEnabled;
+            autoSpaceToggle.classList.toggle('active');
+            autoSpaceToggle.textContent = autoSpaceEnabled ? '✓ 自动加空格' : '○ 自动加空格';
+            document.querySelector('.status').textContent = autoSpaceEnabled
+                ? '中英文混排优化已启用'
+                : '中英文混排优化已禁用';
+            updatePreview();
+        });
+
+        // 监听编辑器输入
+        editor.addEventListener('input', updatePreview);
+
+        // 初始化预览
+        updatePreview();
+
+        // 支持 Tab 键缩进
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = editor.selectionStart;
+                const end = editor.selectionEnd;
+                const value = editor.value;
+                editor.value = value.substring(0, start) + '    ' + value.substring(end);
+                editor.selectionStart = editor.selectionEnd = start + 4;
+            }
+        });
+    </script>
+</body>
+</html>
